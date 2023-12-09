@@ -1,0 +1,124 @@
+<div class="panel panel-default">
+    <div class="panel-heading">
+        <strong>Attachments</strong>
+    </div>
+    {% if attachments %}
+    <table class="table table-hover panel-body">
+        <tr>
+            <th>Name</th>
+            <th>Size</th>
+            <th>Created</th>
+            <th></th>
+        </tr>
+        {% for attachment in attachments %}
+        <tr{% if not attachment.file.size %} class="danger" {% endif %}>
+            <td>
+                <i class="mdi mdi-file-image"></i>
+                <a class="image-preview" href="{{ attachment.file.url }}" >{{ attachment }}</a>
+            </td>
+            <td>{{ attachment.file.size|filesizeformat }}</td>
+            <td>{{ attachment.created }}</td>
+            <td class="text-right noprint">
+                <!-- {% if perms.extras.change_imageattachment %} -->
+                <!-- <a href="{% url 'extras:imageattachment_edit' pk=attachment.pk %}" class="btn btn-warning btn-xs"
+                    title="Edit image">
+                    <i class="mdi mdi-pencil" aria-hidden="true"></i>
+                </a> 
+                {% endif %} -->
+                {% if perms.extras.delete_imageattachment %} 
+                <a href="{% url 'plugins:nautobot_attachment:attachment_delete' pk=attachment.pk %}" class="btn btn-danger btn-xs"
+                    title="Delete attachment">
+                    <i class="mdi mdi-trash-can-outline" aria-hidden="true"></i>
+                </a>
+                {% endif %}
+            </td>
+            </tr>
+            {% endfor %}
+    </table>
+    {% else %}
+    <div class="panel-body">
+        <span class="text-muted">None</span>
+    </div>
+    {% endif %}
+    <!-- {% if perms.extras.add_imageattachment %} -->
+    <div class="panel-footer text-right noprint">
+        <form id="upload_form" enctype="multipart/form-data" method="post">
+        <label class="btn btn-primary btn-xs">
+            <span class="mdi mdi-plus-thick" aria-hidden="true"></span>
+            Add attachment
+            <input type="file" name="new-attachment" id="file1" onchange="uploadFile()" style="display:none;">
+        </label>
+    </div>
+    <!-- {% endif %} -->
+</div>
+
+<div id="attachment-progress" class="modal fade" tabindex="-1" role="dialog" data-backdrop="static" data-keyboard="false">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button id="close-attachment-progress" type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+          <h4 class="modal-title">Uploading <span id="attachment-filename"></span></h4>
+        </div>
+        <div class="modal-body">
+            <progress id="progressBar" value="0" max="100" style="width:300px;"></progress>
+            <h3 id="status"></h3>
+            <p id="loaded_n_total"></p>    
+        </div>
+        <!-- <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-primary">Save changes</button>
+        </div> -->
+      </div><!-- /.modal-content -->
+    </div><!-- /.modal-dialog -->
+  </div><!-- /.modal -->
+
+<script>
+    function _(el) {
+        return document.getElementById(el);
+    }
+
+    function uploadFile() {
+        var file = _("file1").files[0];
+        // alert(file.name+" | "+file.size+" | "+file.type);
+        var formdata = new FormData();
+        formdata.append("file1", file);
+        var ajax = new XMLHttpRequest();
+        ajax.upload.addEventListener("progress", progressHandler, false);
+        ajax.addEventListener("load", completeHandler, false);
+        ajax.addEventListener("error", errorHandler, false);
+        ajax.addEventListener("abort", abortHandler, false);
+        ajax.open("POST", "{% url 'plugins:nautobot_attachment:attachment_add' object.pk %}");
+        ajax.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
+        ajax.send(formdata);
+        $('#attachment-progress').modal('show')
+        _("close-attachment-progress").disabled = true
+    }
+
+    function progressHandler(event) {
+        _("loaded_n_total").innerHTML = "Uploaded " + event.loaded + " bytes of " + event.total;
+        var percent = (event.loaded / event.total) * 100;
+        _("progressBar").value = Math.round(percent);
+        _("status").innerHTML = Math.round(percent) + "% uploaded... please wait";
+    }
+
+    function completeHandler(event) {
+        if (event.target.status == 200) {
+            window.location.reload()
+            return
+        } 
+        _("status").innerHTML = `Status: ${event.target.status} <br> ${event.target.responseText}`;
+        _("close-attachment-progress").disabled = false
+
+    }
+
+    function errorHandler(event) {
+        _("status").innerHTML = "Upload Failed";
+        _("close-attachment-progress").disabled = false
+    }
+
+    function abortHandler(event) {
+        _("status").innerHTML = "Upload Aborted";
+        _("close-attachment-progress").disabled = false
+    }
+
+</script>
